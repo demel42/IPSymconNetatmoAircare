@@ -184,6 +184,9 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.7 @ 16.07.2023 11:32
+  - Hotfix: Umgehung des Problems, das ein Login mit Entwicklerschlüssel nicht mehr möglich ist
+
 - 1.6 @ 04.07.2023 14:44
   - Fix: Schreibfehler korrigiert
   - Vorbereitung auf IPS 7 / PHP 8.2

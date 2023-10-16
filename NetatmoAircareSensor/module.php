@@ -10,13 +10,16 @@ class NetatmoAircareSensor extends IPSModule
     use NetatmoAircare\StubsCommonLib;
     use NetatmoAircareLocalLib;
 
-    private $ModuleDir;
-
     public function __construct(string $InstanceID)
     {
         parent::__construct($InstanceID);
 
-        $this->ModuleDir = __DIR__;
+        $this->CommonContruct(__DIR__);
+    }
+
+    public function __destruct()
+    {
+        $this->CommonDestruct();
     }
 
     public function Create()
@@ -38,7 +41,8 @@ class NetatmoAircareSensor extends IPSModule
         $this->RegisterPropertyBoolean('with_minmax', false);
         $this->RegisterPropertyInteger('minutes2fail', 30);
 
-        $this->RegisterAttributeString('UpdateInfo', '');
+        $this->RegisterAttributeString('UpdateInfo', json_encode([]));
+        $this->RegisterAttributeString('ModuleStats', json_encode([]));
 
         $this->InstallVarProfiles(false);
 

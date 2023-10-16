@@ -184,6 +184,10 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.8 @ 20.09.2023 15:08
+  - Neu: Ermittlung von Speicherbedarf und Laufzeit (aktuell und für 31 Tage) und Anzeige im Panel "Information"
+  - update submodule CommonStubs
+
 - 1.7 @ 16.07.2023 11:32
   - Hotfix: Umgehung des Problems, das ein Login mit Entwicklerschlüssel nicht mehr möglich ist
 

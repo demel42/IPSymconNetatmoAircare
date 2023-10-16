@@ -16,13 +16,16 @@ class NetatmoAircareIO extends IPSModule
         'read_homecoach', // Luftqualität-Sensor
     ];
 
-    private $ModuleDir;
-
     public function __construct(string $InstanceID)
     {
         parent::__construct($InstanceID);
 
-        $this->ModuleDir = __DIR__;
+        $this->CommonContruct(__DIR__);
+    }
+
+    public function __destruct()
+    {
+        $this->CommonDestruct();
     }
 
     public function Create()
@@ -40,9 +43,10 @@ class NetatmoAircareIO extends IPSModule
 
         $this->RegisterPropertyInteger('OAuth_Type', self::$CONNECTION_UNDEFINED);
 
-        $this->RegisterAttributeString('UpdateInfo', '');
-
         $this->RegisterAttributeString('ApiRefreshToken', '');
+
+        $this->RegisterAttributeString('UpdateInfo', json_encode([]));
+        $this->RegisterAttributeString('ModuleStats', json_encode([]));
 
         $this->InstallVarProfiles(false);
 
@@ -508,28 +512,31 @@ class NetatmoAircareIO extends IPSModule
         $oauth_type = $this->ReadPropertyInteger('OAuth_Type');
         if ($oauth_type == self::$CONNECTION_DEVELOPER) {
             $items[] = [
-                'type'     => 'ExpansionPanel',
-                'expanede' => true,
+                'type'     => 'PopupButton',
                 'caption'  => 'Set refresh token',
                 'items'    => [
-                    [
-                        'type'    => 'Label',
-                        'caption' => 'Generate on from https://dev.netatmo.com for the used app'
+                    'caption'  => 'Set refresh token',
+                    'items'    => [
+                        [
+                            'type'    => 'Label',
+                            'caption' => 'Generate the refresh token at https://dev.netatmo.com/apps/ for the app you are using. The scopes must be selected according to the default',
+                        ],
+                        [
+                            'type'    => 'Label',
+                            'caption' => $this->Translate('Needed scopes') . ': ' . implode(' ', self::$scopes),
+                        ],
+                        [
+                            'type'    => 'ValidationTextBox',
+                            'width'   => '600px',
+                            'name'    => 'refresh_token',
+                            'caption' => 'Refresh token'
+                        ],
                     ],
-                    [
-                        'type'    => 'Label',
-                        'caption' => $this->Translate('Needed scopes') . ': ' . implode(' ', self::$scopes),
-                    ],
-                    [
-                        'type'    => 'ValidationTextBox',
-                        'width'   => '600px',
-                        'name'    => 'refresh_token',
-                        'caption' => 'Refresh token'
-                    ],
-                    [
-                        'type'    => 'Button',
-                        'caption' => 'Set',
-                        'onClick' => 'IPS_RequestAction(' . $this->InstanceID . ', "SetRefreshToken", $refresh_token);',
+                    'buttons' => [
+                        [
+                            'caption' => 'Set',
+                            'onClick' => 'IPS_RequestAction(' . $this->InstanceID . ', "SetRefreshToken", $refresh_token);',
+                        ],
                     ],
                 ],
             ];

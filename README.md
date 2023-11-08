@@ -184,6 +184,9 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.9 @ 08.11.2023 08:56
+  - Fix: Panel "Experten-Bereich" kann wieder geöffnet werden (Fix zu 1.7)
+
 - 1.8 @ 03.11.2023 11:06
   - Neu: Ermittlung von Speicherbedarf und Laufzeit (aktuell und für 31 Tage) und Anzeige im Panel "Information"
   - update submodule CommonStubs

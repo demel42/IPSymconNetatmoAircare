@@ -514,7 +514,7 @@ class NetatmoAircareIO extends IPSModule
             $items[] = [
                 'type'     => 'PopupButton',
                 'caption'  => 'Set refresh token',
-                'items'    => [
+                'popup'    => [
                     'caption'  => 'Set refresh token',
                     'items'    => [
                         [

@@ -26,7 +26,9 @@ class NetatmoAircareConfig extends IPSModule
     {
         parent::Create();
 
-        $this->RegisterPropertyInteger('ImportCategoryID', 0);
+        if (IPS_GetKernelVersion() < 7.0) {
+            $this->RegisterPropertyInteger('ImportCategoryID', 0);
+        }
 
         $this->RegisterAttributeString('UpdateInfo', json_encode([]));
         $this->RegisterAttributeString('ModuleStats', json_encode([]));
@@ -40,7 +42,10 @@ class NetatmoAircareConfig extends IPSModule
     {
         parent::ApplyChanges();
 
-        $propertyNames = ['ImportCategoryID'];
+        $propertyNames = [];
+        if (IPS_GetKernelVersion() < 7.0) {
+            $propertyNames[] = 'ImportCategoryID';
+        }
         $this->MaintainReferences($propertyNames);
 
         if ($this->CheckPrerequisites() != false) {
@@ -75,7 +80,12 @@ class NetatmoAircareConfig extends IPSModule
             return $entries;
         }
 
-        $catID = $this->ReadPropertyInteger('ImportCategoryID');
+        if (IPS_GetKernelVersion() < 7.0) {
+            $catID = $this->ReadPropertyInteger('ImportCategoryID');
+            $location = $this->GetConfiguratorLocation($catID);
+        } else {
+            $location = '';
+        }
 
         $SendData = ['DataID' => '{076043C4-997E-6AB3-9978-DA212D50A9F5}', 'Function' => 'LastData'];
         $data = $this->SendDataToParent(json_encode($SendData));
@@ -130,7 +140,7 @@ class NetatmoAircareConfig extends IPSModule
                         'product_id' => $product_id,
                         'create'     => [
                             'moduleID'       => $guid,
-                            'location'       => $this->GetConfiguratorLocation($catID),
+                            'location'       => $location,
                             'info'           => $product_name,
                             'configuration'  => [
                                 'product_type' => $product_type,
@@ -197,11 +207,13 @@ class NetatmoAircareConfig extends IPSModule
             return $formElements;
         }
 
-        $formElements[] = [
-            'type'    => 'SelectCategory',
-            'name'    => 'ImportCategoryID',
-            'caption' => 'category for products to be created'
-        ];
+        if (IPS_GetKernelVersion() < 7.0) {
+            $formElements[] = [
+                'type'    => 'SelectCategory',
+                'name'    => 'ImportCategoryID',
+                'caption' => 'category for products to be created'
+            ];
+        }
 
         $entries = $this->getConfiguratorValues();
         $formElements[] = [

@@ -133,10 +133,12 @@ ruft die Daten der Netatmo-Aircare-Produkte ab. Wird automatisch zyklisch durch 
 
 #### Properties
 
-| Eigenschaft               | Typ      | Standardwert | Beschreibung |
-| :------------------------ | :------  | :----------- | :----------- |
-| Kategorie                 | integer  | 0            | Kategorie im Objektbaum, unter dem die Instanzen angelegt werden |
-| Produkte                  | list     |              | Liste der verfügbaren Produkte |
+| Eigenschaft               | Typ     | Standardwert | Beschreibung |
+| :------------------------ | :------ | :----------- | :----------- |
+| Kategorie                 | integer | 0            | Kategorie im Objektbaum, unter dem die Instanzen angelegt werden _[1]_ |
+| Produkte                  | list    |              | Liste der verfügbaren Produkte |
+
+_[1]_: nur bis IPS-Version 7 vorhanden, danach ist eine Einstellmöglichkeit Bestandteil des Standard-Konfigurators
 
 ### NetatmoAircareSensor
 
@@ -183,6 +185,9 @@ GUIDs
   - `{53264646-2842-AA77-59F7-3722D44C2100}`: an NetatmoAircareSensor
 
 ## 7. Versions-Historie
+
+- 1.10 @10.12.2023 10:47
+  - Neu: ab IPS-Version 7 ist im Konfigurator die Angabe einer Import-Kategorie integriert, daher entfällt die bisher vorhandene separate Einstellmöglichkeit
 
 - 1.9 @ 08.11.2023 08:56
   - Fix: Panel "Experten-Bereich" kann wieder geöffnet werden (Fix zu 1.7)

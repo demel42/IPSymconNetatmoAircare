@@ -122,8 +122,8 @@ class NetatmoAircareConfig extends IPSModule
 
                     $instanceID = 0;
                     foreach ($instIDs as $instID) {
-                        $prodID = IPS_GetProperty($instID, 'product_id');
-                        if ($prodID == $product_id) {
+                        if (@IPS_GetProperty($instID, 'product_id') == $product_id) {
+                            $this->SendDebug(__FUNCTION__, 'instance found: ' . IPS_GetName($instID) . ' (' . $instID . ')', 0);
                             $instanceID = $instID;
                             break;
                         }
@@ -148,9 +148,8 @@ class NetatmoAircareConfig extends IPSModule
                             ]
                         ]
                     ];
-
                     $entries[] = $entry;
-                    $this->SendDebug(__FUNCTION__, 'entry=' . print_r($entry, true), 0);
+                    $this->SendDebug(__FUNCTION__, 'instanceID=' . $instanceID . ', entry=' . print_r($entry, true), 0);
                 }
             }
         }
@@ -182,7 +181,7 @@ class NetatmoAircareConfig extends IPSModule
 
                 $product_name = IPS_GetName($instID);
                 $home_name = '';
-                $product_id = IPS_GetProperty($instID, 'product_id');
+                @$product_id = IPS_GetProperty($instID, 'product_id');
 
                 $entry = [
                     'instanceID' => $instID,
@@ -192,7 +191,7 @@ class NetatmoAircareConfig extends IPSModule
                     'product_id' => $product_id,
                 ];
                 $entries[] = $entry;
-                $this->SendDebug(__FUNCTION__, 'missing entry=' . print_r($entry, true), 0);
+                $this->SendDebug(__FUNCTION__, 'lost: instanceID=' . $instID . ', entry=' . print_r($entry, true), 0);
             }
         }
 

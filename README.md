@@ -186,6 +186,10 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.12 @ 01.08.2024 14:38
+  - Änderung: nach Wegfall des Passwort-basierten Logins (siehe v1.7) nun die Konfiguration von Benutzerkennung und Passwort bereinigt
+  - update submodule CommonStubs
+
 - 1.11 @ 07.02.2024 18:02
   - Fix: Absicherung von Zugriffen auf andere Instanzen in Konfiguratoren
   - Verbesserung: Angleichung interner Bibliotheken anlässlich IPS 7

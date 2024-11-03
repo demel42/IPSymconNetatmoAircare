@@ -41,6 +41,8 @@ class NetatmoAircareIO extends IPSModule
         $this->RegisterPropertyString('Netatmo_Client', '');
         $this->RegisterPropertyString('Netatmo_Secret', '');
 
+        $this->RegisterPropertyString('hook', '/hook/' . __CLASS__);
+
         $this->RegisterPropertyInteger('UpdateDataInterval', '5');
 
         $this->RegisterPropertyInteger('OAuth_Type', self::$CONNECTION_UNDEFINED);
@@ -75,15 +77,20 @@ class NetatmoAircareIO extends IPSModule
                     $r[] = $this->Translate('Password must be specified');
                 }
             }
-            $client = $this->ReadPropertyString('Netatmo_Client');
-            if ($client == '') {
+            $client_id = $this->ReadPropertyString('Netatmo_Client');
+            if ($client_id == '') {
                 $this->SendDebug(__FUNCTION__, '"Netatmo_Client" is needed', 0);
                 $r[] = $this->Translate('Client-ID must be specified');
             }
-            $secret = $this->ReadPropertyString('Netatmo_Secret');
-            if ($secret == '') {
+            $client_secret = $this->ReadPropertyString('Netatmo_Secret');
+            if ($client_secret == '') {
                 $this->SendDebug(__FUNCTION__, '"Netatmo_Secret" is needed', 0);
                 $r[] = $this->Translate('Client-Secret must be specified');
+            }
+            $hook = $this->ReadPropertyString('hook');
+            if ($hook != '' && $this->HookIsUsed($hook)) {
+                $this->SendDebug(__FUNCTION__, '"hook" is already used', 0);
+                $r[] = $this->Translate('Webhook is already in use');
             }
         }
 
@@ -98,6 +105,12 @@ class NetatmoAircareIO extends IPSModule
             $oauth_type = $this->ReadPropertyInteger('OAuth_Type');
             if ($oauth_type == self::$CONNECTION_OAUTH) {
                 $this->RegisterOAuth($this->oauthIdentifer);
+            }
+            if ($oauth_type == self::$CONNECTION_DEVELOPER) {
+                $hook = $this->ReadPropertyString('hook');
+                if ($hook != '') {
+                    $this->RegisterHook($hook);
+                }
             }
             $this->MaintainTimer('UpdateData', 1000);
         }
@@ -135,37 +148,125 @@ class NetatmoAircareIO extends IPSModule
         }
 
         $oauth_type = $this->ReadPropertyInteger('OAuth_Type');
-        switch ($oauth_type) {
-            case self::$CONNECTION_DEVELOPER:
+        if ($oauth_type == self::$CONNECTION_DEVELOPER) {
+            $this->MaintainStatus(IS_ACTIVE);
+        }
+        if ($oauth_type == self::$CONNECTION_OAUTH) {
+            if ($this->GetConnectUrl() == false) {
+                $this->MaintainStatus(self::$IS_NOSYMCONCONNECT);
+                return;
+            }
+            $refresh_token = $this->ReadAttributeString('ApiRefreshToken');
+            if ($refresh_token == '') {
+                $this->MaintainStatus(self::$IS_NOLOGIN);
+            } else {
                 $this->MaintainStatus(IS_ACTIVE);
-                break;
-            case self::$CONNECTION_OAUTH:
-                if ($this->GetConnectUrl() == false) {
-                    $this->MaintainStatus(self::$IS_NOSYMCONCONNECT);
-                    return;
-                }
-                $refresh_token = $this->ReadAttributeString('ApiRefreshToken');
-                if ($refresh_token == '') {
-                    $this->MaintainStatus(self::$IS_NOLOGIN);
-                } else {
-                    $this->MaintainStatus(IS_ACTIVE);
-                }
-                break;
-            default:
-                break;
+            }
         }
 
         if (IPS_GetKernelRunlevel() == KR_READY) {
             if ($oauth_type == self::$CONNECTION_OAUTH) {
                 $this->RegisterOAuth($this->oauthIdentifer);
             }
+            if ($oauth_type == self::$CONNECTION_DEVELOPER) {
+                $hook = $this->ReadPropertyString('hook');
+                if ($hook != '') {
+                    $this->RegisterHook($hook);
+                }
+            }
             $this->MaintainTimer('UpdateData', 1000);
         }
     }
 
-    private function Login()
+    protected function ProcessHookData()
     {
-        $url = 'https://oauth.ipmagic.de/authorize/' . $this->oauthIdentifer . '?username=' . urlencode(IPS_GetLicensee());
+        $this->SendDebug(__FUNCTION__, '_SERVER=' . print_r($_SERVER, true), 0);
+        $this->SendDebug(__FUNCTION__, '_GET=' . print_r($_GET, true), 0);
+
+        $module_disable = $this->ReadPropertyBoolean('module_disable');
+        if ($module_disable) {
+            http_response_code(404);
+            die('Instance is disabled!');
+        }
+
+        $root = realpath(__DIR__);
+        $uri = $_SERVER['REQUEST_URI'];
+        if (substr($uri, -1) == '/') {
+            http_response_code(404);
+            die('File not found!');
+        }
+        $hook = $this->ReadPropertyString('hook');
+        if ($hook == '') {
+            http_response_code(404);
+            die('File not found!');
+        }
+        $path = parse_url($uri, PHP_URL_PATH);
+        $basename = substr($path, strlen($hook));
+        if (substr($basename, 0, 1) == '/') {
+            $basename = substr($basename, 1);
+        }
+        if ($basename == 'oauth') {
+            $this->OAuthStep2($_GET);
+            if ($this->GetStatus() == IS_ACTIVE) {
+                echo $this->Translate('Login was successful');
+            } else {
+                echo $this->Translate('Login was not successful');
+            }
+            return;
+        }
+        http_response_code(404);
+        die('File not found!');
+    }
+
+    private function random_string($length)
+    {
+        $result = '';
+        $characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        for ($i = 0; $i < $length; $i++) {
+            $result .= substr($characters, rand(0, strlen($characters)), 1);
+        }
+        return $result;
+    }
+
+    private function build_url($url, $params)
+    {
+        $n = 0;
+        if (is_array($params)) {
+            foreach ($params as $param => $value) {
+                $url .= ($n++ ? '&' : '?') . $param . '=' . rawurlencode(strval($value));
+            }
+        }
+        return $url;
+    }
+
+    private function build_header($headerfields)
+    {
+        $header = [];
+        foreach ($headerfields as $key => $value) {
+            $header[] = $key . ': ' . $value;
+        }
+        return $header;
+    }
+
+    public function Login()
+    {
+        $oauth_type = $this->ReadPropertyInteger('OAuth_Type');
+        if ($oauth_type == self::$CONNECTION_OAUTH) {
+            $params = [
+                'username' => IPS_GetLicensee(),
+                'scope'    => implode(' ', self::$scopes),
+            ];
+            $url = $this->build_url('https://oauth.ipmagic.de/authorize/' . $this->oauthIdentifer, $params);
+        }
+        if ($oauth_type == self::$CONNECTION_DEVELOPER) {
+            $params = [
+                'client_id'    => $this->ReadPropertyString('Netatmo_Client'),
+                'redirect_uri' => $this->GetOAuthRedirectUri(),
+                'scope'        => implode(' ', self::$scopes),
+                'state'        => $this->random_string(16),
+            ];
+            $url = $this->build_url('https://api.netatmo.net/oauth2/authorize', $params);
+        }
         $this->SendDebug(__FUNCTION__, 'url=' . $url, 0);
         return $url;
     }
@@ -350,7 +451,7 @@ class NetatmoAircareIO extends IPSModule
         }
 
         $oauth_type = $this->ReadPropertyInteger('OAuth_Type');
-        if ($oauth_type == self::$CONNECTION_OAUTH) {
+        if ($oauth_type == self::$CONNECTION_OAUTH || ($oauth_type == self::$CONNECTION_DEVELOPER && $this->GetConnectUrl() !== false)) {
             $formElements[] = [
                 'type'    => 'Label',
                 'caption' => $this->GetConnectStatusText(),
@@ -383,68 +484,44 @@ class NetatmoAircareIO extends IPSModule
             ]
         ];
 
-        switch ($oauth_type) {
-            case self::$CONNECTION_OAUTH:
-                $formElements[] = [
-                    'type'    => 'ExpansionPanel',
-                    'items'   => [
-                        [
-                            'type'    => 'Label',
-                            'caption' => 'Push "Login at Netatmo" in the action part of this configuration form.'
-                        ],
-                        [
-                            'type'    => 'Label',
-                            'caption' => 'At the webpage from Netatmo log in with your Netatmo username and password.'
-                        ],
-                        [
-                            'type'    => 'Label',
-                            'caption' => 'If the connection to IP-Symcon was successfull you get the message: "Netatmo successfully connected!". Close the browser window.'
-                        ],
-                        [
-                            'type'    => 'Label',
-                            'caption' => 'Return to this configuration form.'
-                        ],
-                    ],
-                    'caption' => 'Netatmo Login'
-                ];
-                break;
-            case self::$CONNECTION_DEVELOPER:
-                $items = [];
-                if (defined('GRANT_PASSWORD')) {
-                    $items[] = [
-                        'type'    => 'Label',
-                        'caption' => 'Netatmo-Account from https://my.netatmo.com'
-                    ];
-                    $items[] = [
-                        'type'    => 'ValidationTextBox',
-                        'name'    => 'Netatmo_User',
-                        'caption' => 'Username'
-                    ];
-                    $items[] = [
-                        'type'    => 'ValidationTextBox',
-                        'name'    => 'Netatmo_Password',
-                        'caption' => 'Password'
-                    ];
-                }
+        if ($oauth_type == self::$CONNECTION_DEVELOPER) {
+            $items = [];
+            if (defined('GRANT_PASSWORD')) {
                 $items[] = [
                     'type'    => 'Label',
-                    'caption' => 'Netatmo-Connect from https://dev.netatmo.com'
+                    'caption' => 'Netatmo-Account from https://my.netatmo.com'
                 ];
                 $items[] = [
                     'type'    => 'ValidationTextBox',
-                    'name'    => 'Netatmo_Client',
-                    'caption' => 'Client ID'
+                    'name'    => 'Netatmo_User',
+                    'caption' => 'Username'
                 ];
                 $items[] = [
                     'type'    => 'ValidationTextBox',
-                    'width'   => '400px',
-                    'name'    => 'Netatmo_Secret',
-                    'caption' => 'Client Secret'
+                    'name'    => 'Netatmo_Password',
+                    'caption' => 'Password'
                 ];
-                if (!defined('GRANT_PASSWORD')) {
+            }
+            $items[] = [
+                'type'    => 'Label',
+                'caption' => 'Netatmo-Connect from https://dev.netatmo.com'
+            ];
+            $items[] = [
+                'type'    => 'ValidationTextBox',
+                'name'    => 'Netatmo_Client',
+                'caption' => 'Client ID'
+            ];
+            $items[] = [
+                'type'    => 'ValidationTextBox',
+                'width'   => '400px',
+                'name'    => 'Netatmo_Secret',
+                'caption' => 'Client Secret'
+            ];
+            if (!defined('GRANT_PASSWORD')) {
+                if ($this->GetConnectUrl() == false) {
                     $items[] = [
                         'type'    => 'Label',
-                        'caption' => 'Due to the API changes, password-based login with the developer key is no longer possible. The refresh token must be entered manually; see expert panel.',
+                        'caption' => 'Due to the API changes, password-based login with the developer key is no longer possible. Instead, the login must be triggered manually. Alternatively, the refresh token can be entered manually; see expert panel.',
                     ];
                     $items[] = [
                         'type'    => 'ValidationTextBox',
@@ -453,15 +530,48 @@ class NetatmoAircareIO extends IPSModule
                         'value'   => $this->ReadAttributeString('ApiRefreshToken'),
                         'enabled' => false,
                     ];
+                } else {
+                    $captions = [
+                        'Due to the API changes, password-based login with the developer key is no longer possible. Instead, the login must be triggered manually.',
+                        '',
+                        'Push "Login at Netatmo" in the action part of this configuration form.',
+                        'At the webpage from Netatmo log in with your Netatmo username and password.',
+                        'If the connection was successfull you get the message: "Login was successful". Close the browser window.',
+                        'Return to this configuration form.',
+                    ];
+                    foreach ($captions as $caption) {
+                        $items[] = [
+                            'type'    => 'Label',
+                            'caption' => $caption,
+                        ];
+                    }
                 }
-                $formElements[] = [
-                    'type'    => 'ExpansionPanel',
-                    'items'   => $items,
-                    'caption' => 'Netatmo Access-Details'
+            }
+            $formElements[] = [
+                'type'    => 'ExpansionPanel',
+                'items'   => $items,
+                'caption' => 'Netatmo Access-Details'
+            ];
+        }
+        if ($oauth_type == self::$CONNECTION_OAUTH) {
+            $items = [];
+            $captions = [
+                'Push "Login at Netatmo" in the action part of this configuration form.',
+                'At the webpage from Netatmo log in with your Netatmo username and password.',
+                'If the connection to IP-Symcon was successfull you get the message: "Netatmo successfully connected!". Close the browser window.',
+                'Return to this configuration form.',
+            ];
+            foreach ($captions as $caption) {
+                $items[] = [
+                    'type'    => 'Label',
+                    'caption' => $caption,
                 ];
-                break;
-            default:
-                break;
+            }
+            $formElements[] = [
+                'type'    => 'ExpansionPanel',
+                'items'   => $items,
+                'caption' => 'Netatmo Login'
+            ];
         }
 
         $formElements[] = [
@@ -495,7 +605,7 @@ class NetatmoAircareIO extends IPSModule
         }
 
         $oauth_type = $this->ReadPropertyInteger('OAuth_Type');
-        if ($oauth_type == self::$CONNECTION_OAUTH) {
+        if ($oauth_type != self::$CONNECTION_UNDEFINED) {
             $formActions[] = [
                 'type'    => 'Button',
                 'caption' => 'Login at Netatmo',
@@ -519,35 +629,37 @@ class NetatmoAircareIO extends IPSModule
 
         $oauth_type = $this->ReadPropertyInteger('OAuth_Type');
         if ($oauth_type == self::$CONNECTION_DEVELOPER) {
-            $items[] = [
-                'type'     => 'PopupButton',
-                'caption'  => 'Set refresh token',
-                'popup'    => [
+            if ($this->GetConnectUrl() == false) {
+                $items[] = [
+                    'type'     => 'PopupButton',
                     'caption'  => 'Set refresh token',
-                    'items'    => [
-                        [
-                            'type'    => 'Label',
-                            'caption' => 'Generate the refresh token at https://dev.netatmo.com/apps/ for the app you are using. The scopes must be selected according to the default',
+                    'popup'    => [
+                        'caption'  => 'Set refresh token',
+                        'items'    => [
+                            [
+                                'type'    => 'Label',
+                                'caption' => 'Generate the refresh token at https://dev.netatmo.com/apps/ for the app you are using. The scopes must be selected according to the default',
+                            ],
+                            [
+                                'type'    => 'Label',
+                                'caption' => $this->Translate('Needed scopes') . ': ' . implode(' ', self::$scopes),
+                            ],
+                            [
+                                'type'    => 'ValidationTextBox',
+                                'width'   => '600px',
+                                'name'    => 'refresh_token',
+                                'caption' => 'Refresh token'
+                            ],
                         ],
-                        [
-                            'type'    => 'Label',
-                            'caption' => $this->Translate('Needed scopes') . ': ' . implode(' ', self::$scopes),
-                        ],
-                        [
-                            'type'    => 'ValidationTextBox',
-                            'width'   => '600px',
-                            'name'    => 'refresh_token',
-                            'caption' => 'Refresh token'
+                        'buttons' => [
+                            [
+                                'caption' => 'Set',
+                                'onClick' => 'IPS_RequestAction(' . $this->InstanceID . ', "SetRefreshToken", $refresh_token);',
+                            ],
                         ],
                     ],
-                    'buttons' => [
-                        [
-                            'caption' => 'Set',
-                            'onClick' => 'IPS_RequestAction(' . $this->InstanceID . ', "SetRefreshToken", $refresh_token);',
-                        ],
-                    ],
-                ],
-            ];
+                ];
+            }
         }
 
         $formActions[] = [
@@ -633,6 +745,81 @@ class NetatmoAircareIO extends IPSModule
         return $ret;
     }
 
+    private function GetOAuthRedirectUri()
+    {
+        return $this->GetConnectUrl() . $this->ReadPropertyString('hook') . '/oauth';
+    }
+
+    private function OAuthStep2($data)
+    {
+        if (isset($data['code']) == false) {
+            $this->SendDebug(__FUNCTION__, 'item "code" ist missing in data=' . print_r($data, true), 0);
+            $this->MaintainStatus(self::$IS_INVALIDDATA);
+            $this->SetMultiBuffer('LastData', '');
+            return false;
+        }
+
+        $url = 'https://api.netatmo.net/oauth2/token';
+
+        $client_id = $this->ReadPropertyString('Netatmo_Client');
+        $client_secret = $this->ReadPropertyString('Netatmo_Secret');
+
+        $headerfields = [
+            'Content-Type' => 'application/x-www-form-urlencoded;charset=UTF-8',
+        ];
+        $postfields = [
+            'grant_type'    => 'authorization_code',
+            'client_id'     => $client_id,
+            'client_secret' => $client_secret,
+            'code'          => $data['code'],
+            'redirect_uri'  => $this->GetOAuthRedirectUri(),
+            'scope'         => implode(' ', self::$scopes),
+        ];
+
+        $this->SendDebug(__FUNCTION__, 'postfields=' . print_r($postfields, true), 0);
+        $header = $this->build_header($headerfields);
+        $postdata = http_build_query($postfields);
+
+        $data = '';
+        $err = '';
+        $statuscode = $this->do_HttpRequest($url, $header, $postdata, 'POST', $data, $err);
+        if ($statuscode == 0) {
+            $params = json_decode($data, true);
+            $this->SendDebug(__FUNCTION__, 'params=' . print_r($params, true), 0);
+            if ($params['access_token'] == '') {
+                $statuscode = self::$IS_INVALIDDATA;
+                $err = "no 'access_token' in response";
+            }
+        }
+
+        if ($statuscode) {
+            $this->LogMessage('url=' . $url . ', statuscode=' . $statuscode . ', err=' . $err, KL_WARNING);
+            $this->SendDebug(__FUNCTION__, $err, 0);
+            $this->MaintainStatus($statuscode);
+            $this->SetMultiBuffer('LastData', '');
+            return false;
+        }
+
+        $access_token = $params['access_token'];
+        $expires_in = $params['expires_in'];
+        $expiration = time() + $expires_in - 60;
+        $this->SendDebug(__FUNCTION__, 'new access_token=' . $access_token . ', valid until ' . date('d.m.y H:i:s', $expiration), 0);
+        $jtoken = [
+            'access_token' => $access_token,
+            'expiration'   => $expiration,
+            'type'         => self::$CONNECTION_DEVELOPER
+        ];
+        $this->SetBuffer('ApiAccessToken', json_encode($jtoken));
+
+        if (isset($params['refresh_token'])) {
+            $refresh_token = $params['refresh_token'];
+            $this->SendDebug(__FUNCTION__, 'new refresh_token=' . $refresh_token, 0);
+            $this->WriteAttributeString('ApiRefreshToken', $refresh_token);
+        }
+
+        $this->MaintainStatus(IS_ACTIVE);
+    }
+
     private function GetApiAccessToken()
     {
         $oauth_type = $this->ReadPropertyInteger('OAuth_Type');
@@ -643,8 +830,8 @@ class NetatmoAircareIO extends IPSModule
             case self::$CONNECTION_DEVELOPER:
                 $url = 'https://api.netatmo.net/oauth2/token';
 
-                $client = $this->ReadPropertyString('Netatmo_Client');
-                $secret = $this->ReadPropertyString('Netatmo_Secret');
+                $client_id = $this->ReadPropertyString('Netatmo_Client');
+                $client_secret = $this->ReadPropertyString('Netatmo_Secret');
 
                 $jtoken = json_decode($this->GetBuffer('ApiAccessToken'), true);
                 $access_token = isset($jtoken['access_token']) ? $jtoken['access_token'] : '';
@@ -672,8 +859,8 @@ class NetatmoAircareIO extends IPSModule
                             $password = $this->ReadPropertyString('Netatmo_Password');
                             $postdata = [
                                 'grant_type'    => 'password',
-                                'client_id'     => $client,
-                                'client_secret' => $secret,
+                                'client_id'     => $client_id,
+                                'client_secret' => $client_secret,
                                 'username'      => $user,
                                 'password'      => $password,
                                 'scope'         => implode(' ', self::$scopes),
@@ -686,8 +873,8 @@ class NetatmoAircareIO extends IPSModule
                     } else {
                         $postdata = [
                             'grant_type'    => 'refresh_token',
-                            'client_id'     => $client,
-                            'client_secret' => $secret,
+                            'client_id'     => $client_id,
+                            'client_secret' => $client_secret,
                             'refresh_token' => $refresh_token
                         ];
                     }
@@ -764,8 +951,10 @@ class NetatmoAircareIO extends IPSModule
         }
 
         // Anfrage mit Token
-        $url = 'https://api.netatmo.net/api/gethomecoachsdata';
-        $url .= '?access_token=' . $access_token;
+        $params = [
+            'access_token' => $access_token,
+        ];
+        $url = $this->build_url('https://api.netatmo.net/api/gethomecoachsdata', $params);
 
         $data = '';
         $err = '';

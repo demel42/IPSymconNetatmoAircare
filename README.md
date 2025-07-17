@@ -186,6 +186,9 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.15 @ 17.07.2025 11:11
+  - Änderung: API-Server wurden geändert (api.netatmo.net -> api.netatmo.com)
+
 - 1.14 @ 03.01.2025 14:17
   - update submodule CommonStubs
 

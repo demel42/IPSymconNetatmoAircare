@@ -186,6 +186,9 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.16 @ 22.08.2025 10:30
+  - Korrektur: API-Aufrufe an aktuelle Dokumentation angepasst
+
 - 1.15 @ 17.07.2025 11:11
   - Änderung: API-Server wurden geändert (api.netatmo.net -> api.netatmo.com)
 

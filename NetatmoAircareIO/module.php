@@ -12,6 +12,8 @@ class NetatmoAircareIO extends IPSModule
 
     private $oauthIdentifer = 'netatmo';
 
+    private static $api_server = 'api.netatmo.com';
+
     private static $scopes = [
         'read_homecoach', // Luftqualität-Sensor
     ];
@@ -46,6 +48,8 @@ class NetatmoAircareIO extends IPSModule
         $this->RegisterPropertyInteger('UpdateDataInterval', '5');
 
         $this->RegisterPropertyInteger('OAuth_Type', self::$CONNECTION_UNDEFINED);
+
+        $this->RegisterPropertyBoolean('collectApiCallStats', true);
 
         $this->RegisterAttributeString('ApiRefreshToken', '');
 
@@ -139,6 +143,10 @@ class NetatmoAircareIO extends IPSModule
             $this->MaintainStatus(self::$IS_INVALIDCONFIG);
             return;
         }
+
+        $vpos = 1000;
+        $collectApiCallStats = $this->ReadPropertyBoolean('collectApiCallStats');
+        $this->MaintainMedia('ApiCallStats', $this->Translate('API call statistics'), MEDIATYPE_DOCUMENT, '.txt', false, $vpos++, $collectApiCallStats);
 
         $module_disable = $this->ReadPropertyBoolean('module_disable');
         if ($module_disable) {
@@ -265,7 +273,7 @@ class NetatmoAircareIO extends IPSModule
                 'scope'        => implode(' ', self::$scopes),
                 'state'        => $this->random_string(16),
             ];
-            $url = $this->build_url('https://api.netatmo.com/oauth2/authorize', $params);
+            $url = $this->build_url('https://' . self::$api_server . '/oauth2/authorize', $params);
         }
         $this->SendDebug(__FUNCTION__, 'url=' . $url, 0);
         return $url;
@@ -588,6 +596,12 @@ class NetatmoAircareIO extends IPSModule
             'caption' => 'Call settings'
         ];
 
+        $formElements[] = [
+            'type'    => 'CheckBox',
+            'name'    => 'collectApiCallStats',
+            'caption' => 'Collect data of API calls'
+        ];
+
         return $formElements;
     }
 
@@ -660,6 +674,11 @@ class NetatmoAircareIO extends IPSModule
                     ],
                 ];
             }
+        }
+
+        $collectApiCallStats = $this->ReadPropertyBoolean('collectApiCallStats');
+        if ($collectApiCallStats) {
+            $items[] = $this->GetApiCallStatsFormItem();
         }
 
         $formActions[] = [
@@ -736,7 +755,7 @@ class NetatmoAircareIO extends IPSModule
                 default:
                     $this->SendDebug(__FUNCTION__, 'unknown function "' . $jdata['Function'] . '"', 0);
                     break;
-                }
+            }
         } else {
             $this->SendDebug(__FUNCTION__, 'unknown message-structure', 0);
         }
@@ -759,7 +778,7 @@ class NetatmoAircareIO extends IPSModule
             return false;
         }
 
-        $url = 'https://api.netatmo.com/oauth2/token';
+        $url = 'https://' . self::$api_server . '/oauth2/token';
 
         $client_id = $this->ReadPropertyString('Netatmo_Client');
         $client_secret = $this->ReadPropertyString('Netatmo_Secret');
@@ -828,7 +847,7 @@ class NetatmoAircareIO extends IPSModule
                 $access_token = $this->FetchAccessToken();
                 break;
             case self::$CONNECTION_DEVELOPER:
-                $url = 'https://api.netatmo.com/oauth2/token';
+                $url = 'https://' . self::$api_server . '/oauth2/token';
 
                 $client_id = $this->ReadPropertyString('Netatmo_Client');
                 $client_secret = $this->ReadPropertyString('Netatmo_Secret');
@@ -950,15 +969,15 @@ class NetatmoAircareIO extends IPSModule
             return;
         }
 
-        // Anfrage mit Token
-        $params = [
-            'access_token' => $access_token,
+        $header = [
+            'Accept: application/json',
+            'Authorization: Bearer ' . $access_token,
         ];
-        $url = $this->build_url('https://api.netatmo.com/api/gethomecoachsdata', $params);
+        $url = 'https://' . self::$api_server . '/api/gethomecoachsdata';
 
         $data = '';
         $err = '';
-        $statuscode = $this->do_HttpRequest($url, '', '', 'GET', $data, $err);
+        $statuscode = $this->do_HttpRequest($url, $header, '', 'GET', $data, $err);
         if ($statuscode == 0) {
             $jdata = json_decode($data, true);
             $this->SendDebug(__FUNCTION__, 'jdata=' . print_r($jdata, true), 0);
@@ -1121,6 +1140,12 @@ class NetatmoAircareIO extends IPSModule
 
         $this->SendDebug(__FUNCTION__, '    statuscode=' . $statuscode . ', err=' . $err, 0);
         $this->SendDebug(__FUNCTION__, '    data=' . $data, 0);
+
+        $collectApiCallStats = $this->ReadPropertyBoolean('collectApiCallStats');
+        if ($collectApiCallStats) {
+            $this->ApiCallCollect($url, $err, $statuscode);
+        }
+
         return $statuscode;
     }
 }

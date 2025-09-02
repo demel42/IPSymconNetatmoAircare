@@ -186,6 +186,9 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.16.1 @ 02.09.2025 17:21
+  - Korrektur: Änderung zu 1.16
+
 - 1.16 @ 22.08.2025 10:30
   - Korrektur: API-Aufrufe an aktuelle Dokumentation angepasst
 

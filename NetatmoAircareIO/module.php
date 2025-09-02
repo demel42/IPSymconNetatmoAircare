@@ -398,7 +398,7 @@ class NetatmoAircareIO extends IPSModule
                 $this->SendDebug(__FUNCTION__, 'no saved access_token', 0);
             }
             $refresh_token = $this->ReadAttributeString('ApiRefreshToken');
-            $this->SendDebug(__FUNCTION__, 'refresh_token=' . print_r($refresh_token, true), 0);
+            $this->SendDebug(__FUNCTION__, 'refresh_token=' . $refresh_token, 0);
             if ($refresh_token == '') {
                 $this->SendDebug(__FUNCTION__, 'has no refresh_token', 0);
                 $this->WriteAttributeString('ApiRefreshToken', '');
@@ -442,6 +442,9 @@ class NetatmoAircareIO extends IPSModule
             return;
         }
         $refresh_token = $this->FetchRefreshToken($_GET['code']);
+        if ($refresh_token === false) {
+            $refresh_token = '';
+        }
         $this->SendDebug(__FUNCTION__, 'refresh_token=' . $refresh_token, 0);
         $this->WriteAttributeString('ApiRefreshToken', $refresh_token);
         if ($this->GetStatus() == self::$IS_NOLOGIN) {

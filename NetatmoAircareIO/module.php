@@ -327,7 +327,7 @@ class NetatmoAircareIO extends IPSModule
                 $err = 'got http-code ' . $httpcode . ' (server error)';
             } else {
                 $statuscode = self::$IS_HTTPERROR;
-                $err = 'got http-code ' . $httpcode;
+                $err = 'got http-code ' . $httpcode . ' (' . $this->HttpCode2Text($httpcode) . ')';
             }
         } elseif ($cdata == '') {
             $statuscode = self::$IS_NODATA;
@@ -1126,7 +1126,7 @@ class NetatmoAircareIO extends IPSModule
                 $err = 'got http-code ' . $httpcode . ' (server error)';
             } else {
                 $statuscode = self::$IS_HTTPERROR;
-                $err = 'got http-code ' . $httpcode;
+                $err = 'got http-code ' . $httpcode . ' (' . $this->HttpCode2Text($httpcode) . ')';
             }
         } elseif ($cdata == '') {
             $statuscode = self::$IS_NODATA;

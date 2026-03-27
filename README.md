@@ -186,6 +186,11 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.17 @ 27.03.2026 14:41
+  - Fix: Anpassung für IPS 9
+  - interne Änderung
+  - update submodule CommonStubs
+
 - 1.16.1 @ 02.09.2025 17:21
   - Korrektur: Änderung zu 1.16
 

@@ -187,7 +187,7 @@ GUIDs
 ## 7. Versions-Historie
 
 - 1.17.1 @ 20.04.2026 17:25
-  - Fix: unbekannte "WIFI_MEDIUM"
+  - Fix: map_wifi_strength(): undefinierte Abstufung "WIFI_MEDIUM"
 
 - 1.17 @ 27.03.2026 14:41
   - Fix: Anpassung für IPS 9

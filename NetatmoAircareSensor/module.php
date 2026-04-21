@@ -411,7 +411,7 @@ class NetatmoAircareSensor extends IPSModule
         if ($strength <= 56) {
             $val = self::$WIFI_HIGH;
         } elseif ($strength <= 71) {
-            $val = self::$WIFI_MEDIUM;
+            $val = self::$WIFI_AVERAGE;
         } else {
             $val = self::$WIFI_LOW;
         }

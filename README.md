@@ -186,6 +186,12 @@ GUIDs
 
 ## 7. Versions-Historie
 
+- 1.18 @ 10.05.2026 11:48
+  - Fix: Änderung von deprecated php code
+  - Verbesserung: Verbindungstyp "über IP-Symcon" wird als "derzeit nicht funktionsfähig" ausgewiesen
+  - Verbesserung: beim Löschen einer Instanz werden die zugehörigen WebHook- und WebOAuth-Einträge ebenfalls gelöscht
+  - update submodule CommonStubs
+
 - 1.17.1 @ 20.04.2026 17:25
   - Fix: map_wifi_strength(): undefinierte Abstufung "WIFI_MEDIUM"
 
